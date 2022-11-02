@@ -1,0 +1,32 @@
+name: Flat Data (git scraping)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * *'
+
+jobs:
+  scheduled:
+    runs-on: ubuntu-latest
+    container:
+      image: golang:1.18.6
+    steps:
+    - name: Check out this repo
+      uses: actions/checkout@v2
+    - name: Install calendarheatmap
+      run: go install github.com/nikolaydubina/calendarheatmap@latest
+    - name: Create token.json
+      run: echo {{ secret.FEEDLY_TOKEN_JSON }} | base64 --decode > token.json
+    - name: Update data.json and chart.png
+      run: go run main.go -file token.json -date $(date '+%Y-%m-%d') -json data.json | calendarheatmap > chart.png
+    - name: Commit and push if it changed
+      run: |-
+        git config user.name " GitHub Action"
+        git config user.email "actions@users.noreply.github.com"
+        git add -A
+        timestamp=$(date -u)
+        git commit -m "Latest data: ${timestamp}" || exit 0
+        git push
