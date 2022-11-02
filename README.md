@@ -1,8 +1,9 @@
-# fescue
+# 🌱 fescue 🌱
+
 Calendar Heatmap Generation of the read articles on Feedly.
 
 ```bash
-go run main.go -file token.json -date 2022-10-31 | ~/go/bin/calendarheatmap > chart.png
+go run main.go -file token.json -date $(date '+%Y-%m-%d') -json data.json | ~/go/bin/calendarheatmap > chart.png
 ```
 
 ![](./chart.png)

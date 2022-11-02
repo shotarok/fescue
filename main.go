@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/daichi-m/go18ds/sets/hashset"
@@ -17,7 +17,7 @@ import (
 const DAYS = 30
 
 func fetchToken(filename string) (*oauth2.Token, error) {
-	b, err := ioutil.ReadFile(filename)
+	b, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -31,6 +31,19 @@ func fetchToken(filename string) (*oauth2.Token, error) {
 	return &oauth2Token, nil
 }
 
+func readReadArticleCount(filename string) (map[string]int, error) {
+	b, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	var m map[string]int
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func getLatestRead(f *feedly.Client, d time.Time) (res *feedly.MarkerLatestReadResponse, err error) {
 	opt := &feedly.MarkerLatestReadOptionalParams{NewerThan: &feedlytime.Time{d}}
 	latestReadRes, _, err := f.Markers.LatestRead(opt)
@@ -40,8 +53,8 @@ func getLatestRead(f *feedly.Client, d time.Time) (res *feedly.MarkerLatestReadR
 	return latestReadRes, nil
 }
 
-func Diff(lhs *hashset.Set[string], rhs *hashset.Set[string]) *hashset.Set[string] {
-	s := hashset.New[string]()
+func Diff[T comparable](lhs *hashset.Set[T], rhs *hashset.Set[T]) *hashset.Set[T] {
+	s := hashset.New[T]()
 	for _, v := range lhs.Values() {
 		if !rhs.Contains(v) {
 			s.Add(v)
@@ -58,18 +71,25 @@ func Diff(lhs *hashset.Set[string], rhs *hashset.Set[string]) *hashset.Set[strin
 
 func main() {
 	var (
-		filename string
-		date     string
+		filename            string
+		date                string
+		readArticleFilename string
 	)
 
 	flag.StringVar(&filename, "file", "", "token persistent store path")
+	flag.StringVar(&readArticleFilename, "json", "", "read article count json path")
 	flag.StringVar(&date, "date", "", "date (YYYY-MM-DD) when to count read articles")
 	flag.Parse()
 
 	oauth2Token, err := fetchToken(filename)
 	if err != nil {
 		fmt.Printf("Failed to fetch OAuth2 token: %v", err)
+		return
+	}
 
+	m, err := readReadArticleCount(readArticleFilename)
+	if err != nil {
+		fmt.Printf("Failed to read the read article count json: %v", err)
 		return
 	}
 
@@ -77,9 +97,9 @@ func main() {
 	t, err := time.Parse("2006-01-02", date)
 	if err != nil {
 		fmt.Printf("Failed to parse a given arg: %v", err)
+		return
 	}
 
-	m := make(map[string]int)
 	var prev *hashset.Set[string]
 	for i := 0; i < DAYS; i++ {
 		d := t.Add(time.Duration(-i) * time.Hour * 24)
@@ -96,12 +116,14 @@ func main() {
 		prev = cur
 	}
 
-	p := func(r interface{}) {
-		b, err := json.MarshalIndent(r, "", "    ")
-		if err != nil {
-			fmt.Printf("Failed to marshal latestReadRes: %v", err)
-		}
-		fmt.Println(string(b))
+	b, err := json.MarshalIndent(m, "", "    ")
+	if err != nil {
+		fmt.Printf("Failed to marshal latestReadRes: %v", err)
+		return
 	}
-	p(m)
+	if err = os.WriteFile(readArticleFilename, b, 0660); err != nil {
+		fmt.Printf("Failed to update json: %v", err)
+		return
+	}
+	fmt.Println(string(b))
 }
