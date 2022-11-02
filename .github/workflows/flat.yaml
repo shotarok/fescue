@@ -14,14 +14,14 @@ jobs:
     container:
       image: golang:1.18.6
       env:
-        FEEDLY_TOKEN_JSON: ${{ secret.FEEDLY_TOKEN_JSON }}
+        FEEDLY_TOKEN_JSON: ${{ secrets.FEEDLY_TOKEN_JSON }}
     steps:
     - name: Check out this repo
       uses: actions/checkout@v2
     - name: Install calendarheatmap
       run: go install github.com/nikolaydubina/calendarheatmap@latest
     - name: Create token.json
-      run: echo ${{ env.FEEDLY_TOKEN_JSON }} | base64 --decode > token.json
+      run: echo ${FEEDLY_TOKEN_JSON} | base64 --decode > token.json
     - name: Update data.json and chart.png
       run: go run main.go -file token.json -date $(date '+%Y-%m-%d') -json data.json | calendarheatmap > chart.png
     - name: Commit and push if it changed
