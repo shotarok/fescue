@@ -3,7 +3,7 @@
 Calendar Heatmap Generation of the read articles on Feedly.
 
 ```bash
-go run main.go -file token.json -date $(date '+%Y-%m-%d') -json data.json | ~/go/bin/calendarheatmap > chart.png
+go run main.go -token token.json -date $(date '+%Y-%m-%d') -data data.json | ~/go/bin/calendarheatmap > chart.png
 ```
 
 ![](./chart.png)

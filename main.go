@@ -14,9 +14,11 @@ import (
 	"golang.org/x/oauth2"
 )
 
-const DAYS = 30
+// The Feedly API deals with entries older than 31 days are automatically marked as read according to
+// https://developer.feedly.com/v3/markers/. Therefore, this script will fetch data in the only last 30 days.
+const DAYS_TO_FETCH = 30
 
-func fetchToken(filename string) (*oauth2.Token, error) {
+func readToken(filename string) (*oauth2.Token, error) {
 	b, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -53,7 +55,7 @@ func getLatestRead(f *feedly.Client, d time.Time) (res *feedly.MarkerLatestReadR
 	return latestReadRes, nil
 }
 
-func Diff[T comparable](lhs *hashset.Set[T], rhs *hashset.Set[T]) *hashset.Set[T] {
+func setDiff[T comparable](lhs *hashset.Set[T], rhs *hashset.Set[T]) *hashset.Set[T] {
 	s := hashset.New[T]()
 	for _, v := range lhs.Values() {
 		if !rhs.Contains(v) {
@@ -71,17 +73,17 @@ func Diff[T comparable](lhs *hashset.Set[T], rhs *hashset.Set[T]) *hashset.Set[T
 
 func main() {
 	var (
-		filename            string
+		tokenFilename       string
 		date                string
 		readArticleFilename string
 	)
 
-	flag.StringVar(&filename, "file", "", "token persistent store path")
-	flag.StringVar(&readArticleFilename, "json", "", "read article count json path")
+	flag.StringVar(&tokenFilename, "token", "", "token persistent store path")
+	flag.StringVar(&readArticleFilename, "data", "", "read article count json path")
 	flag.StringVar(&date, "date", "", "date (YYYY-MM-DD) when to count read articles")
 	flag.Parse()
 
-	oauth2Token, err := fetchToken(filename)
+	oauth2Token, err := readToken(tokenFilename)
 	if err != nil {
 		fmt.Printf("Failed to fetch OAuth2 token: %v", err)
 		return
@@ -101,16 +103,16 @@ func main() {
 	}
 
 	var prev *hashset.Set[string]
-	for i := 0; i < DAYS; i++ {
+	for i := 0; i < DAYS_TO_FETCH; i++ {
 		d := t.Add(time.Duration(-i) * time.Hour * 24)
 		res, err := getLatestRead(f, d)
 		if err != nil {
 			fmt.Printf("Failed to get the latest read articles: %v", err)
 			return
 		}
-		cur := hashset.New[string](res.Entries...)
+		cur := hashset.New(res.Entries...)
 		if prev != nil {
-			diff := Diff(cur, prev)
+			diff := setDiff(cur, prev)
 			m[d.Format("2006-01-02")] = diff.Size()
 		}
 		prev = cur
