@@ -54,8 +54,10 @@ jobs:
             const key = response.data.key;
             const key_id = response.data.key_id;
 
+            // Deal with base64 encoded token.json as a secret value
+            const value = btoa('${{steps.rotate.outputs.new_token_json}}');
+
             // Convert the message and key to Uint8Array's (Buffer implements that interface)
-            const value = '${{steps.rotate.outputs.new_token_json}}';
             const messageBytes = Buffer.from(value);
             const keyBytes = Buffer.from(key, 'base64');
 
